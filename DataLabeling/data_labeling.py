@@ -5,6 +5,10 @@ Created on Thu Oct  3 12:18:53 2024
 @author: Pranav Belmannu
 """
 import pandas as pd
+import warnings
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore")
 
 data_to_label=pd.read_csv("data_to_label.csv")
 
@@ -35,26 +39,26 @@ for index in range(10000,10500):
         if not match_found:
             data_to_label.loc[index,'match']=False
             #print(data_to_label.loc[index])
-            
+            print(index)
     except requests.exceptions.SSLError as ssl_error:
         print(f"SSL error occurred for {full_url}: {ssl_error}")
-        data_to_label.loc[index, 'match'] = "SSL Error"
+        
         
     except requests.exceptions.Timeout as timeout_error:
         print(f"Timeout error occurred for {full_url}: {timeout_error}")
-        data_to_label.loc[index, 'match'] = "Timeout Error"
+        
         
     except requests.exceptions.ConnectionError as conn_error:
         print(f"Connection error occurred for {full_url}: {conn_error}")
-        data_to_label.loc[index, 'match'] = "Connection Error"
+        
         
     except requests.exceptions.RequestException as req_error:
         print(f"General request error occurred for {full_url}: {req_error}")
-        data_to_label.loc[index, 'match'] = "Request Error"
+        
         
     except Exception as e:
         print(f"An unexpected error occurred for {full_url}: {e}")
-        data_to_label.loc[index, 'match'] = "Unexpected Error"
+        
 
 # Optional: Save the updated DataFrame to a file to review results later
-data_to_label.to_csv("labeled_data.csv", index=False)
+data_to_label.to_csv("labeled_data.csv")
