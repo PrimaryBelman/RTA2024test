@@ -60,5 +60,4 @@ for index in range(10000,10500):
         print(f"An unexpected error occurred for {full_url}: {e}")
         
 
-# Optional: Save the updated DataFrame to a file to review results later
 data_to_label.to_csv("labeled_data.csv")
