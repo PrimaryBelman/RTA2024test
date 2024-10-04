@@ -35,7 +35,7 @@ VALUES ('11', 'Johns cleaning', "Janitorial Services", '561720', '2024-01-01 00:
 Delete from company_address.company_table_new where corp_id=11;
 
 GRANT ALL PRIVILEGES ON company_address.* TO 'root'@'localhost';
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'xxxxx';
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'Belman@30';
 FLUSH PRIVILEGES;
 
 SELECT user, host FROM mysql.user WHERE user = 'root';
