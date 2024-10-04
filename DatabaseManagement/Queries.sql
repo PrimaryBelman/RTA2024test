@@ -41,64 +41,99 @@ FLUSH PRIVILEGES;
 SELECT user, host FROM mysql.user WHERE user = 'root';
 
 -- Task 3:-
-CREATE TABLE company_address.sync_log_company (
+CREATE TABLE company_address.sync_log (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    table_name VARCHAR(255),
+    table_name VARCHAR(255),       -- Stores which table was affected (company_table or address_table)
     operation_type ENUM('INSERT', 'UPDATE'),
-    record_id INT unique,
+    record_id INT,                 -- Stores the 'corp_id' from the affected table
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE company_address.sync_log_address (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    table_name VARCHAR(255),
-    operation_type ENUM('INSERT', 'UPDATE'),
-    record_id INT,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_record_id FOREIGN KEY (record_id) REFERENCES company_address.sync_log_company (record_id)
-);
+DELIMITER $$
 
-
-delimiter $$
+-- Trigger for company_table_new INSERT
 CREATE TRIGGER company_address.after_insert_trigger_company
 AFTER INSERT ON company_table_new
 FOR EACH ROW
 BEGIN
-    INSERT INTO sync_log_company (table_name, operation_type, record_id)
+    INSERT INTO sync_log (table_name, operation_type, record_id)
     VALUES ('company_table_new', 'INSERT', NEW.corp_id);
 END$$
-DELIMITER ;
--- drop trigger company_address.after_insert_trigger_company;
 
-delimiter $$
-CREATE TRIGGER company_address.after_insert_trigger_address
-AFTER INSERT ON address_table_new
-FOR EACH ROW
-BEGIN
-    INSERT INTO sync_log_address (table_name, operation_type, record_id)
-    VALUES ('address_table_new', 'INSERT', NEW.corp_id);
-END$$
-DELIMITER ;
-
-DROP TRIGGER IF EXISTS company_address.after_update_trigger_company;
-
-
-DELIMITER $$
+-- Trigger for company_table_new UPDATE
 CREATE TRIGGER company_address.after_update_trigger_company
 AFTER UPDATE ON company_table_new
 FOR EACH ROW
 BEGIN
     INSERT INTO sync_log (table_name, operation_type, record_id)
     VALUES ('company_table_new', 'UPDATE', NEW.corp_id);
-END;
-DELIMITER ;
+END$$
 
-DELIMITER $$
+-- Trigger for address_table_new INSERT
+CREATE TRIGGER company_address.after_insert_trigger_address
+AFTER INSERT ON address_table_new
+FOR EACH ROW
+BEGIN
+    INSERT INTO sync_log (table_name, operation_type, record_id)
+    VALUES ('address_table_new', 'INSERT', NEW.corp_id);
+END$$
+
+-- Trigger for address_table_new UPDATE
 CREATE TRIGGER company_address.after_update_trigger_address
 AFTER UPDATE ON address_table_new
 FOR EACH ROW
 BEGIN
     INSERT INTO sync_log (table_name, operation_type, record_id)
-    VALUES ('address_table_new', 'UPDATE',  New.corp_id);
-END;
+    VALUES ('address_table_new', 'UPDATE', NEW.corp_id);
+END$$
+
 DELIMITER ;
+CREATE TABLE company_address.sync_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    table_name VARCHAR(255),       -- Stores which table was affected (company_table or address_table)
+    operation_type ENUM('INSERT', 'UPDATE'),
+    record_id INT,                 -- Stores the 'corp_id' from the affected table
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+DELIMITER $$
+
+-- Trigger for company_table_new INSERT
+CREATE TRIGGER company_address.after_insert_trigger_company
+AFTER INSERT ON company_table_new
+FOR EACH ROW
+BEGIN
+    INSERT INTO sync_log (table_name, operation_type, record_id)
+    VALUES ('company_table_new', 'INSERT', NEW.corp_id);
+END$$
+
+-- Trigger for company_table_new UPDATE
+CREATE TRIGGER company_address.after_update_trigger_company
+AFTER UPDATE ON company_table_new
+FOR EACH ROW
+BEGIN
+    INSERT INTO sync_log (table_name, operation_type, record_id)
+    VALUES ('company_table_new', 'UPDATE', NEW.corp_id);
+END$$
+
+-- Trigger for address_table_new INSERT
+CREATE TRIGGER company_address.after_insert_trigger_address
+AFTER INSERT ON address_table_new
+FOR EACH ROW
+BEGIN
+    INSERT INTO sync_log (table_name, operation_type, record_id)
+    VALUES ('address_table_new', 'INSERT', NEW.corp_id);
+END$$
+
+-- Trigger for address_table_new UPDATE
+CREATE TRIGGER company_address.after_update_trigger_address
+AFTER UPDATE ON address_table_new
+FOR EACH ROW
+BEGIN
+    INSERT INTO sync_log (table_name, operation_type, record_id)
+    VALUES ('address_table_new', 'UPDATE', NEW.corp_id);
+END$$
+
+DELIMITER ;
+ALTER TABLE company_address.sync_log ADD COLUMN sync_status ENUM('SYNCHRONIZED', 'PENDING') DEFAULT NULL;
+

@@ -4,60 +4,73 @@ Created on Thu Oct  3 12:18:53 2024
 
 @author: Pranav Belmannu
 """
+
 import pandas as pd
-import warnings
-
-# Suppress specific warnings
-warnings.filterwarnings("ignore")
-
 data_to_label=pd.read_csv("data_to_label.csv")
-
 import requests
 from bs4 import BeautifulSoup as bs
 
+# Iterate over rows from index 10,000 to 10,500
+for idx, row in data_to_label.iloc[10000:10500].iterrows():
+    https = 'https://'
+    http = 'http://'
 
-for index in range(10000,10500):
-    https='https://'
-    full_url=https+data_to_label.loc[index,'url']
-    try:
-        response=requests.get(full_url,verify=False,timeout=20,stream=True)
+# =============================================================================
+# I do add https first to check the url and if it fails I add http.
+# =============================================================================
 
-        if response.status_code!=200:
-            data_to_label.loc[index,'redirected_url']=full_url
-        else:
-            data_to_label.loc[index,'redirected_url']=False
-            soup=bs(response.content,'html.parser')
-            elements=soup.find_all(string=True)
     
-        match_found=False
+    # Construct the initial HTTPS URL
+    full_url = https + row['url']
+
+    def make_request(url):
+        try:
+            response = requests.get(url, verify=False, timeout=20, stream=True)
+            return response
+        except requests.exceptions.RequestException as req_error:
+            print(f"General request error occurred for {url}: {req_error}")
+            return None
+
+    # Try HTTPS first
+    response = make_request(full_url)
+
+    if not response:  # If the HTTPS request failed
+        # Construct the HTTP URL
+        full_url = http + row['url']
+        response = make_request(full_url)
+
+# =============================================================================
+# If the response code is 3XX, it means the url is redirected therefore the
+# url is saved
+# =============================================================================
+
+
+    if response:  # If we received a response
+        if response.history:  # Check if there was a redirect
+            # Check the final status code of the last request in the history
+            final_response = response.history[-1]
+            if final_response.status_code in {301, 302, 303, 307, 308}:  # Common redirect status codes
+                data_to_label.loc[row.name, 'redirected_url'] = final_response.url
+            else:
+                data_to_label.loc[row.name, 'redirected_url'] = False
+        else:
+            data_to_label.loc[row.name, 'redirected_url'] = False
+
+        soup = bs(response.content, 'html.parser')
+        elements = soup.find_all(string=True)
+
+        match_found = False
         for element in elements:
-            if (data_to_label.loc[index,'business_name'].lower() in element.lower()):
-                data_to_label.loc[index,'match']=True
-                match_found=True
+            if row['business_name'].lower() in element.lower():
+                data_to_label.loc[row.name, 'match'] = True
+                match_found = True
                 break
-        
+
         if not match_found:
-            data_to_label.loc[index,'match']=False
-            #print(data_to_label.loc[index])
-            print(index)
-    except requests.exceptions.SSLError as ssl_error:
-        print(f"SSL error occurred for {full_url}: {ssl_error}")
-        
-        
-    except requests.exceptions.Timeout as timeout_error:
-        print(f"Timeout error occurred for {full_url}: {timeout_error}")
-        
-        
-    except requests.exceptions.ConnectionError as conn_error:
-        print(f"Connection error occurred for {full_url}: {conn_error}")
-        
-        
-    except requests.exceptions.RequestException as req_error:
-        print(f"General request error occurred for {full_url}: {req_error}")
-        
-        
-    except Exception as e:
-        print(f"An unexpected error occurred for {full_url}: {e}")
-        
+            data_to_label.loc[row.name, 'match'] = False
+            print(row.name)
+
+    else:
+        print(f"Failed to retrieve URL: {full_url}")
 
 data_to_label.to_csv("labeled_data.csv")
