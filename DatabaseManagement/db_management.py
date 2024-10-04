@@ -103,7 +103,8 @@ import_json_to_mysql('address_table_new.json', 'address_table')
 
 # =============================================================================
 # This code creates a pipeline from mysql to Elasticsearch. What I do here 
-# is select query for each table and 
+# is select query for each table and verify if each record exists in Elasticsearch
+# if not it keeps inserting. this takes around 2 hours of your runtime.
 # =============================================================================
 # Task 2: Data Pipelining
 # Establish MySQL connection again for further operations
@@ -180,8 +181,14 @@ def generate_company_data():
 helpers.bulk(client, generate_address_data())
 helpers.bulk(client, generate_company_data())
 
+# =============================================================================
+# I wrote this code to verify if the insert or update is happening and 
+# code synchronization will happen using this function. I wrote a smaller piece
+# code and I used chatgpt to correct my mistakes.
+# =============================================================================
+
 # Task 3: Synchronization changes code
-def sync_with_elasticsearch():
+def sync_with_elasticsearch(client):
     try:
         # Establish MySQL connection
         connection = pymysql.connector.connect(host='localhost',
@@ -202,22 +209,30 @@ def sync_with_elasticsearch():
 
             # Fetch the full record from the affected table
             if table_name == 'company_table_new':
-                cursor.execute("SELECT * FROM company_table_new WHERE corp_id = %s",
-                               (record_id,))
+                cursor.execute("SELECT * FROM company_table_new WHERE corp_id = %s", (record_id,))
             elif table_name == 'address_table_new':
-                cursor.execute("SELECT * FROM address_table_new WHERE corp_id = %s", 
-                               (record_id,))
+                cursor.execute("SELECT * FROM address_table_new WHERE corp_id = %s", (record_id,))
             
             record = cursor.fetchone()
 
-            # Prepare Elasticsearch data based on the table
-            if table_name == 'company_table_new':
-                client.index(index='company_table', id=record_id, document=record)
-            elif table_name == 'address_table_new':
-                client.index(index='address_table', id=record_id, document=record)
+            # Prepare Elasticsearch data based on the operation type
+            if operation_type == 'INSERT':
+                # Insert new document in Elasticsearch
+                if table_name == 'company_table_new':
+                    client.index(index='company_table', id=record_id, document=record)
+                elif table_name == 'address_table_new':
+                    client.index(index='address_table', id=record_id, document=record)
+
+            elif operation_type == 'UPDATE':
+                # Update existing document in Elasticsearch
+                if table_name == 'company_table_new':
+                    client.update(index='company_table', id=record_id, doc=record)
+                elif table_name == 'address_table_new':
+                    client.update(index='address_table', id=record_id, doc=record)
 
             # Optionally update the sync status to avoid reprocessing
             cursor.execute("UPDATE sync_log SET sync_status = 'SYNCHRONIZED' WHERE id = %s", (log_entry['id'],))
+        
         connection.commit()
 
     except Exception as e:
