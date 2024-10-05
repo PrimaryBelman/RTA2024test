@@ -139,7 +139,7 @@ with ThreadPoolExecutor(max_workers=10) as executor:
         # Update the DataFrame with results
         distinct_urls.at[index, 'company_name'] = company_name
         distinct_urls.at[index, 'request_failed'] = request_failed
-        #distinct_urls.at[index, 'soup'] = soup  # Store the soup object
+        distinct_urls.at[index, 'soup'] = soup  # Store the soup object
 
         # Save checkpoint after every 10 URLs processed
         if (len(indices) % 10) == 0:
