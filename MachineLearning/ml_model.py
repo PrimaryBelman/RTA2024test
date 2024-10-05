@@ -5,6 +5,7 @@ Created on Fri Sept 27  17:20:29 2024
 @author: Pranav Belmannu
 """
 
+
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
@@ -12,15 +13,26 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 import logging
 import time
+import os
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, 
-                    format='%(asctime)s - %(levelname)s -%(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# File path for saving the DataFrame
+output_file = 'distinct_urls_with_company_names.csv'
+checkpoint_file = 'checkpoint.csv'
 
 # Read data from Parquet files
 urls = pd.read_parquet('urls.parquet', engine="pyarrow")
 header_data = pd.read_parquet('header_data.parquet', engine="pyarrow")
 distinct_urls = urls.drop_duplicates('url')
+
+# Check if a checkpoint file exists and load it
+if os.path.exists(checkpoint_file):
+    checkpoint = pd.read_csv(checkpoint_file)
+    distinct_urls = distinct_urls[~distinct_urls['url'].isin(checkpoint['url'])]  # Remove already processed URLs
+else:
+    checkpoint = pd.DataFrame(columns=['url', 'company_name', 'request_failed'])
 
 # Function to remove common TLDs
 def remove_tlds(domain_name, tlds):
@@ -35,8 +47,7 @@ def extract_company_name(soup, url):
     domain_name = parsed_url.netloc.replace('www.', '')
 
     # Remove common TLDs
-    tlds = ['.com', '.net', '.org', '.io', '.co', '.info', '.biz'] 
-    # Add more TLDs as needed
+    tlds = ['.com', '.net', '.org', '.io', '.co', '.info', '.biz']  # Add more TLDs as needed
     clean_domain_name = remove_tlds(domain_name, tlds)
 
     company_name = None
@@ -125,24 +136,33 @@ with ThreadPoolExecutor(max_workers=10) as executor:
         request_failures.append(request_failed)
         soups.append(soup)  # Append the soup object to the list
 
-# Update the DataFrame with results
-distinct_urls['company_name'] = [None] * len(distinct_urls)
-distinct_urls['request_failed'] = [False] * len(distinct_urls)
-distinct_urls['soup'] = [None] * len(distinct_urls)  # Initialize the soup column
+        # Update the DataFrame with results
+        distinct_urls.at[index, 'company_name'] = company_name
+        distinct_urls.at[index, 'request_failed'] = request_failed
+        #distinct_urls.at[index, 'soup'] = soup  # Store the soup object
 
-for idx, company_name, request_failed, soup in zip(indices, company_names, request_failures, soups):
-    distinct_urls.at[idx, 'company_name'] = company_name
-    distinct_urls.at[idx, 'request_failed'] = request_failed
-    distinct_urls.at[idx, 'soup'] = soup  # Store the soup object
+        # Save checkpoint after every 10 URLs processed
+        if (len(indices) % 10) == 0:
+            checkpoint = distinct_urls[['url', 'company_name', 'request_failed']].dropna()  # Save only processed rows
+            checkpoint.to_csv(checkpoint_file, index=False)  # Save checkpoint
 
-# Save the updated DataFrame to a new CSV file for further analysis
-distinct_urls.to_csv('distinct_urls_with_company_names.csv', index=False)
+# Final save of the DataFrame
+distinct_urls.to_csv(output_file, index=False)
+logging.info("All URLs processed and results saved to the CSV file.")
 
+
+# =============================================================================
+# This is the Task 2 which adds and validates NAICS code for each URL if available
+#Here I take each URL name explode i.e separate each word and compare it against
+# the each business name. We probably will get NAICS code matches which are possible
+
+# =============================================================================
 # Check the resulting DataFrame
 print(distinct_urls.head())
 
+#Step 1 declare NAICS2 in header data as int and perform string replacement
+# spaces and change lowercase
 header_data['NAICS2']=header_data['NAICS2'].astype(int)
-
 distinct_urls['NAICS'] = 'None'
 header_data['new_business_name']=header_data.business_name.str.replace(" ","")
 header_data['new_business_name']=header_data['new_business_name'].str.lower()
@@ -168,6 +188,12 @@ result = merged.groupby('url').agg({
 distinct_urls['NAICS'] = distinct_urls['url'].map(result.set_index('url')['NAICS2'])
 
 print(distinct_urls['NAICS'].value_counts())
+
+# =============================================================================
+# I have probably selected most basic ML model to analyze the data.My soup collection
+# took 3 working days to complete and I had to optimize my code to get easiest 
+# results
+# =============================================================================
 
 
 # # Task 3: Machine learning
@@ -218,6 +244,7 @@ print(f"R² Score: {r2}")
 # I see that R2 value is 46% I can see couple reasons why
 
 # My final dataset had only 62 values.
-# I might have not clean extraction of Company names. Although, I had some checkpoints but I managed to bring in sentences within the dataset.
+# I might have not clean extraction of Company names. 
+#Although, I had some checkpoints but I managed to bring in sentences 
+#within the dataset.
 
-# 
