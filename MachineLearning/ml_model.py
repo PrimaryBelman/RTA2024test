@@ -221,6 +221,23 @@ vectorizer.get_feature_names_out()
 
 X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2)
 
+
+# Step 2: Convert X_train, X_test, y_train, y_test into DataFrames
+train_data = pd.concat([X_train, y_train], axis=1)  
+# Combine features and target for the training set
+test_data = pd.concat([X_test, y_test], axis=1)   
+ # Combine features and target for the test set
+
+# Step 3: Save the training and test sets to separate files
+train_file = 'train_data.csv'
+test_file = 'test_data.csv'
+
+train_data.to_csv(train_file, index=False)  # Save training set
+test_data.to_csv(test_file, index=False)    # Save test set
+
+
+
+
 svm_regressor = SVR()
 svm_regressor.fit(X_train, y_train)
 
